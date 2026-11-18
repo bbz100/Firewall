@@ -22,7 +22,7 @@ edit(h, [
 ])
 
 edit(c, [
-    ("#include <sys/param.h>", "#include <sys/callout.h>\n#include <sys/param.h>"),
+    ("#include <sys/param.h>", "#include <sys/param.h>\n#include <sys/callout.h>"),
     ("ifp->if_index", "if_getindex(ifp)"),
     ("bpctl_dev_arr[dev_idx].ndev->if_flags", "if_getflags(bpctl_dev_arr[dev_idx].ndev)"),
     ("bpctl_dev_arr[pair_idx].ndev->if_flags", "if_getflags(bpctl_dev_arr[pair_idx].ndev)"),
