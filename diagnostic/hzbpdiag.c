@@ -1,7 +1,8 @@
 /*
  * HZ Silicom PCI diagnostic for OPNsense 26.7.
- * Read-only PCI configuration identification. Does not access BARs, I/O
- * resources, GPIO, EEPROM, watchdogs, bypass registers or network interfaces.
+ * Read-only PCI identification and BAR resource metadata inspection.
+ * Does not map BARs, read/write device registers, modify resources,
+ * control relays/watchdogs, or change network interfaces.
  * This module does not attach to NIC drivers or change device configuration.
  */
 #include <sys/param.h>
@@ -10,6 +11,7 @@
 #include <sys/module.h>
 #include <sys/bus.h>
 #include <sys/errno.h>
+#include <sys/rman.h>
 #include <dev/pci/pcivar.h>
 
 #define HZ_VENDOR 0x8086
@@ -21,7 +23,8 @@ static int
 hzbpdiag_event(module_t mod __unused, int event, void *arg __unused)
 {
     device_t dev;
-    int fn, matched;
+    int fn, matched, rid, error;
+    rman_res_t start, count;
     uint16_t vendor, device, subvendor, subdevice;
 
     switch (event) {
@@ -40,6 +43,18 @@ hzbpdiag_event(module_t mod __unused, int event, void *arg __unused)
             subdevice = pci_get_subdevice(dev);
             printf("hzbpdiag: pci0:2:0:%d vendor=%04x device=%04x subvendor=%04x subdevice=%04x\n",
                 fn, vendor, device, subvendor, subdevice);
+            /* Query OS-maintained BAR metadata without mapping or touching registers. */
+            for (rid = 0x10; rid <= 0x1c; rid += 0x0c) {
+                start = 0;
+                count = 0;
+                error = bus_get_resource(dev, SYS_RES_MEMORY, rid, &start, &count);
+                if (error == 0)
+                    printf("hzbpdiag: pci0:2:0:%d BAR[%02x] base=%#jx bytes=%ju (metadata only)\n",
+                        fn, rid, (uintmax_t)start, (uintmax_t)count);
+                else
+                    printf("hzbpdiag: pci0:2:0:%d BAR[%02x] unavailable error=%d\n",
+                        fn, rid, error);
+            }
             if (vendor == HZ_VENDOR && device == HZ_DEVICE &&
                 subvendor == HZ_SUBVENDOR && subdevice == HZ_SUBDEVICE)
                 ++matched;
