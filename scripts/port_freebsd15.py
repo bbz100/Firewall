@@ -40,6 +40,17 @@ data = c.read_text()
 import re
 data = re.sub(r"callout_reset\(&pbpctl_dev->bp_timer, ([^;]*?)\);", r"callout_reset(&pbpctl_dev->bp_timer, \1, wd_reset_timer, pbpctl_dev);", data)
 data = re.sub(r"callout_reset\(&pbpctl_dev->bp_tpl_timer, ([^;]*?)\);", r"callout_reset(&pbpctl_dev->bp_tpl_timer, \1, bp_tpl_timer_fn, pbpctl_dev);", data)
+# Keep the device node unavailable if the controller did not initialise.
+# This is needed for the no-NIC VM smoke test and for safe error handling.
+original_load = "err = bpmod_init();\n\t\tbpmod_dev = make_dev"
+if original_load not in data:
+    raise SystemExit("Cannot find MOD_LOAD initialisation block")
+data = data.replace(original_load, "err = bpmod_init();\n\t\tif (err != 0) {\n\t\t\treturn err;\n\t\t}\n\t\tbpmod_dev = make_dev")
+# The old driver initialises its mutex before checking for supported devices.
+original_no_device = 'printf("No such device\\n"); \n\t\treturn ENODEV;'
+if original_no_device not in data:
+    raise SystemExit("Cannot find no-device failure path")
+data = data.replace(original_no_device, 'printf("No such device\\n"); \n\t\tmtx_destroy(&mtx);\n\t\treturn ENODEV;')
 # Suppress only unused-but-set warnings in this first API survey, not other errors.
 c.write_text(data)
 print("Applied experimental API migration")
