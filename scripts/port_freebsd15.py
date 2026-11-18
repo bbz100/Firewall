@@ -84,6 +84,43 @@ scan = scan.replace(
 )
 scan = scan.replace(old_tail, new_tail)
 data = data[:start] + scan + data[end:]
+# Crash report from OPNsense 26.7: bpctl_util ioctl -> get_dev_idx ->
+# if_scan -> ifunit caused a page fault. The ioctl thread had curvnet == 0.
+# Do not call the network-interface lookup from ioctl paths. The driver
+# populated the interface indexes during initial PCI enumeration.
+old = """\tif (cmd == IOCTL_TX_MSG(IF_SCAN)) {    
+\t\tif_scan();
+\t\treturn SUCCESS;
+\t}"""
+new = """\tif (cmd == IOCTL_TX_MSG(IF_SCAN)) {
+\t\t/* PCI discovery populated cached interface indexes at module load. */
+\t\treturn SUCCESS;
+\t}"""
+if old not in data:
+    raise SystemExit("Cannot find ioctl IF_SCAN block")
+data = data.replace(old, new)
+for funcname in ("get_dev_idx(int ifindex)", "get_dev_idx_bsf(int bus, int slot, int func)"):
+    pos = data.index(funcname)
+    scanpos = data.index("\tif_scan();", pos)
+    nextbrace = data.index("}", pos)
+    if scanpos > nextbrace:
+        raise SystemExit(f"No if_scan call inside {funcname}")
+    data = data[:scanpos] + "\t/* Use indices populated during initial PCI enumeration. */" + data[scanpos+len("\tif_scan();"):]
+# The 10G-specific ioctl path must not refresh the network list either.
+data = data.replace(
+    "\t\tif_scan();\n\t\tif (bpctl_dev_arr[dev_idx].ndev)",
+    "\t\t/* Cached interface pointer established at module load. */\n\t\tif (bpctl_dev_arr[dev_idx].ndev)"
+)
+# Independent bounds checks: never dereference before testing idx.
+data = data.replace(
+    "((bpctl_dev_arr[idx_dev].pdev != NULL) && (idx_dev<device_num))",
+    "((idx_dev<device_num) && (bpctl_dev_arr[idx_dev].pdev != NULL))"
+)
+data = data.replace(
+    "((bpctl_dev_arr[idx_dev].pdev != NULL) && (idx_dev < device_num))",
+    "((idx_dev < device_num) && (bpctl_dev_arr[idx_dev].pdev != NULL))"
+)
+data = data.replace("dev_idx<0||dev_idx>device_num", "dev_idx<0||dev_idx>=device_num")
 # Suppress only unused-but-set warnings in this first API survey, not other errors.
 c.write_text(data)
 print("Applied experimental API migration")
