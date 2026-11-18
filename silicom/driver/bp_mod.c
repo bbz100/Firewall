@@ -124,7 +124,7 @@ static void if_scan(void){
 	int idx_dev=0;
 	struct ifnet *ifp=NULL;
 	/* rtnl_lock();*/
-	for (idx_dev = 0; ((bpctl_dev_arr[idx_dev].pdev!=NULL)&&(idx_dev<device_num)); idx_dev++)
+	for (idx_dev = 0; ((idx_dev<device_num)&&(bpctl_dev_arr[idx_dev].pdev!=NULL)); idx_dev++)
 	{
 		ifp = ifunit(bpctl_dev_arr[idx_dev].nameunit);
 		if (ifp) {
@@ -1988,7 +1988,7 @@ static bpctl_dev_t *get_status_port_fn(bpctl_dev_t *pbpctl_dev) {
 
 	} else { 
 		if ((pbpctl_dev->func==0)||(pbpctl_dev->func==2)) {
-			for (idx_dev = 0; ((bpctl_dev_arr[idx_dev].pdev!=NULL)&&(idx_dev<device_num)); idx_dev++) {
+			for (idx_dev = 0; ((idx_dev<device_num)&&(bpctl_dev_arr[idx_dev].pdev!=NULL)); idx_dev++) {
 				if ((bpctl_dev_arr[idx_dev].bus==pbpctl_dev->bus)&&
 					(bpctl_dev_arr[idx_dev].slot==pbpctl_dev->slot)&&
 					((bpctl_dev_arr[idx_dev].func==1)&&(pbpctl_dev->func==0))) {
@@ -2017,7 +2017,7 @@ static bpctl_dev_t *get_master_port_fn(bpctl_dev_t *pbpctl_dev) {
 	}
 
 	if ((pbpctl_dev->func==1)||(pbpctl_dev->func==3)) {
-		for (idx_dev = 0; ((bpctl_dev_arr[idx_dev].pdev!=NULL)&&(idx_dev<device_num)); idx_dev++) {
+		for (idx_dev = 0; ((idx_dev<device_num)&&(bpctl_dev_arr[idx_dev].pdev!=NULL)); idx_dev++) {
 			if ((bpctl_dev_arr[idx_dev].bus==pbpctl_dev->bus)&&
 				(bpctl_dev_arr[idx_dev].slot==pbpctl_dev->slot)&&
 				((bpctl_dev_arr[idx_dev].func==0)&&(pbpctl_dev->func==1))) {
@@ -6353,7 +6353,7 @@ bpmod_close(struct cdev *dev, int flag, int otyp, struct thread *td)
 static int get_dev_idx_bsf(int bus, int slot, int func) {
 	int idx_dev=0;
 	if_scan();
-	for (idx_dev = 0; ((bpctl_dev_arr[idx_dev].pdev!=NULL)&&(idx_dev<device_num)); idx_dev++) {
+	for (idx_dev = 0; ((idx_dev<device_num)&&(bpctl_dev_arr[idx_dev].pdev!=NULL)); idx_dev++) {
 		if ((bus==bpctl_dev_arr[idx_dev].bus) &&
 			(slot==bpctl_dev_arr[idx_dev].slot) &&
 			(func==bpctl_dev_arr[idx_dev].func) ) {
@@ -7708,9 +7708,9 @@ bpmod_load(module_t mod, int cmd, void *arg)
 int
 bpmod_find_devices(void){
 	devclass_t      pci_devclass;
-	device_t        *pci_devices;
+	device_t        *pci_devices = NULL;
 	int         pci_count = 0;
-	device_t        *pci_children;
+	device_t        *pci_children = NULL;
 	int         pci_childcount = 0;
 	device_t        *busp, *childp;
 	int         i, j, idx,idx_dev=0;
@@ -7718,12 +7718,15 @@ bpmod_find_devices(void){
 	if ((pci_devclass = devclass_find("pci")) == NULL)
 		return 0;
 
-	devclass_get_devices(pci_devclass, &pci_devices, &pci_count);
+	if (devclass_get_devices(pci_devclass, &pci_devices, &pci_count) != 0)
+		return 0;
 
 	for (i = 0, busp = pci_devices; i < pci_count; i++, busp++)
 	{
 		pci_childcount = 0;
-		device_get_children(*busp, &pci_children, &pci_childcount);
+		pci_children = NULL;
+		if (device_get_children(*busp, &pci_children, &pci_childcount) != 0)
+			continue;
 		for (j = 0, childp = pci_children;
 			j < pci_childcount; j++, childp++)
 		{
@@ -7740,8 +7743,12 @@ bpmod_find_devices(void){
 				   )
 					idx_dev++;
 
-		} 
+		}
+		if (pci_children != NULL)
+			free(pci_children, M_TEMP);
 	}
+	if (pci_devices != NULL)
+		free(pci_devices, M_TEMP);
 	return idx_dev;
 }
 
@@ -7953,7 +7960,7 @@ bpmod_alloc_devices(void)
 		}
 	}
 
-	for (idx_dev = 0; ((bpctl_dev_arr[idx_dev].pdev!=NULL)&&(idx_dev<device_num)); idx_dev++) {
+	for (idx_dev = 0; ((idx_dev<device_num)&&(bpctl_dev_arr[idx_dev].pdev!=NULL)); idx_dev++) {
 		
 		{
 			bpctl_dev_t *pbpctl_dev_c=get_status40_port_fn(&bpctl_dev_arr[idx_dev]);
