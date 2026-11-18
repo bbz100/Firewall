@@ -1,0 +1,50 @@
+name: Silicom bypass driver - FreeBSD 15.1 compile
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'silicom-freebsd-15_1-build.zip'
+      - '.github/workflows/build-freebsd-15_1.yml'
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unpack exact vendor sources
+        run: |
+          test -f silicom-freebsd-15_1-build.zip || { echo 'Upload silicom-freebsd-15_1-build.zip to the repository root first'; exit 1; }
+          unzip -oq silicom-freebsd-15_1-build.zip
+          test -f silicom/driver/bp_mod.c
+          test -f silicom/util/bpctl_util.c
+      - name: Compile inside FreeBSD 15.1 (do not load module)
+        uses: vmactions/freebsd-vm@v1
+        with:
+          release: '15.1'
+          arch: amd64
+          usesh: true
+          run: |
+            set -eu
+            uname -a
+            freebsd-version -ku
+            if [ ! -f /usr/src/sys/Makefile ]; then
+              fetch -o /tmp/freebsd-src.txz https://download.freebsd.org/releases/amd64/amd64/15.1-RELEASE/src.txz
+              tar -xpf /tmp/freebsd-src.txz -C /
+            fi
+            echo '=== USERLAND UTILITY ==='
+            make -C silicom/util
+            echo '=== KERNEL MODULE ==='
+            make -C silicom/driver
+            echo '=== OUTPUT FILES ==='
+            ls -lh silicom/util/bpctl_util silicom/driver/bpmod.ko
+      - name: Upload experimental build artifacts
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: silicom-freebsd-15_1-experimental
+          path: |
+            silicom/util/bpctl_util
+            silicom/driver/bpmod.ko
+          if-no-files-found: error
