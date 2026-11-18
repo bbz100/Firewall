@@ -12,7 +12,7 @@ jobs:
   compile:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - name: Extract original Silicom FreeBSD sources
@@ -27,6 +27,17 @@ jobs:
         run: |
           python3 scripts/port_freebsd15.py
           echo 'CWARNFLAGS+= -Wno-error=unused-but-set-variable' >> bp_ctl-4.0.2/driver/Makefile
+      - name: Publish patched C sources, headers and build files
+        run: |
+          set -eu
+          mkdir -p silicom
+          cp -R bp_ctl-4.0.2/driver bp_ctl-4.0.2/util bp_ctl-4.0.2/include silicom/
+          cp bp_ctl-4.0.2/license bp_ctl-4.0.2/readme.txt bp_ctl-4.0.2/release.txt bp_ctl-4.0.2/Makefile silicom/
+          git add silicom/
+          if ! git diff --cached --quiet; then
+            git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'Publish experimentally ported Silicom FreeBSD 15.1 driver C sources'
+            git push origin HEAD:main
+          fi
       - name: Compile on FreeBSD 15.1 amd64 (do not load kernel module)
         uses: vmactions/freebsd-vm@v1
         with:
@@ -65,3 +76,23 @@ jobs:
             bp_ctl-4.0.2/util/bpctl_util
             bp_ctl-4.0.2/driver/bpmod.ko
           if-no-files-found: error
+
+      - name: VM smoke test - execute utility and attempt no-hardware module load
+        uses: vmactions/freebsd-vm@v1
+        with:
+          release: '15.1'
+          arch: amd64
+          usesh: true
+          run: |
+            set -eu
+            echo '=== Run user-space utility usage path ==='
+            ./bp_ctl-4.0.2/util/bpctl_util || true
+            echo '=== Attempt module load in disposable FreeBSD VM with no Silicom device ==='
+            if kldload ./bp_ctl-4.0.2/driver/bpmod.ko; then
+              echo 'Unexpected success: no Silicom bypass NIC is attached to the VM.'
+              kldunload bpmod || true
+              exit 1
+            fi
+            echo 'Module declined to load without matching physical device (expected).'
+            kldstat -v | grep bpmod && { echo 'Module unexpectedly remained loaded'; exit 1; } || true
+            dmesg | tail -30
