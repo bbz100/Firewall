@@ -1,9 +1,10 @@
 name: Silicom bypass driver - FreeBSD 15.1 compile
+
 on:
   workflow_dispatch:
   push:
     paths:
-      - 'silicom-freebsd-15_1-build.zip'
+      - 'PxGxBP-SD_CD_.zip'
       - '.github/workflows/build-freebsd-15_1.yml'
 
 jobs:
@@ -13,13 +14,15 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-      - name: Unpack exact vendor sources
+      - name: Extract original Silicom FreeBSD sources
         run: |
-          test -f silicom-freebsd-15_1-build.zip || { echo 'Upload silicom-freebsd-15_1-build.zip to the repository root first'; exit 1; }
-          unzip -oq silicom-freebsd-15_1-build.zip
-          test -f silicom/driver/bp_mod.c
-          test -f silicom/util/bpctl_util.c
-      - name: Compile inside FreeBSD 15.1 (do not load module)
+          set -eu
+          test -f PxGxBP-SD_CD_.zip
+          unzip -p PxGxBP-SD_CD_.zip FreeBSD/BP_Control/bp_ctl-4.0.2.tar.gz > /tmp/bp_ctl-4.0.2.tar.gz
+          tar -xzf /tmp/bp_ctl-4.0.2.tar.gz
+          test -f bp_ctl-4.0.2/driver/bp_mod.c
+          test -f bp_ctl-4.0.2/util/bpctl_util.c
+      - name: Compile on FreeBSD 15.1 amd64 (do not load kernel module)
         uses: vmactions/freebsd-vm@v1
         with:
           release: '15.1'
@@ -33,18 +36,18 @@ jobs:
               fetch -o /tmp/freebsd-src.txz https://download.freebsd.org/releases/amd64/amd64/15.1-RELEASE/src.txz
               tar -xpf /tmp/freebsd-src.txz -C /
             fi
-            echo '=== USERLAND UTILITY ==='
-            make -C silicom/util
-            echo '=== KERNEL MODULE ==='
-            make -C silicom/driver
-            echo '=== OUTPUT FILES ==='
-            ls -lh silicom/util/bpctl_util silicom/driver/bpmod.ko
-      - name: Upload experimental build artifacts
+            echo '=== Compile userland tool ==='
+            make -C bp_ctl-4.0.2/util
+            echo '=== Compile kernel driver ==='
+            make -C bp_ctl-4.0.2/driver
+            echo '=== Result ==='
+            ls -lh bp_ctl-4.0.2/util/bpctl_util bp_ctl-4.0.2/driver/bpmod.ko
+      - name: Upload experimental binaries
         if: success()
         uses: actions/upload-artifact@v4
         with:
           name: silicom-freebsd-15_1-experimental
           path: |
-            silicom/util/bpctl_util
-            silicom/driver/bpmod.ko
+            bp_ctl-4.0.2/util/bpctl_util
+            bp_ctl-4.0.2/driver/bpmod.ko
           if-no-files-found: error
