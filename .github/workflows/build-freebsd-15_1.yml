@@ -38,6 +38,11 @@ jobs:
             git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'Publish experimentally ported Silicom FreeBSD 15.1 driver C sources'
             git push origin HEAD:main
           fi
+      - name: Download FreeBSD kernel sources on Ubuntu host
+        run: |
+          set -eu
+          curl --fail --location --retry 5 --retry-all-errors --retry-delay 3 --connect-timeout 30 --output freebsd-src.txz https://download.freebsd.org/releases/amd64/amd64/15.1-RELEASE/src.txz
+          tar -tJf freebsd-src.txz usr/src/sys/Makefile >/dev/null
       - name: Compile on FreeBSD 15.1 amd64 (do not load kernel module)
         uses: vmactions/freebsd-vm@v1
         with:
@@ -49,17 +54,7 @@ jobs:
             uname -a
             freebsd-version -ku
             if [ ! -f /usr/src/sys/Makefile ]; then
-              ok=0
-              for attempt in 1 2 3 4; do
-                echo "Kernel source download attempt $attempt of 4"
-                rm -f /tmp/freebsd-src.txz
-                if fetch -T 180 -o /tmp/freebsd-src.txz https://download.freebsd.org/releases/amd64/amd64/15.1-RELEASE/src.txz; then
-                  ok=1
-                  break
-                fi
-              done
-              test "$ok" -eq 1
-              tar -xpf /tmp/freebsd-src.txz -C /
+              tar -xpf freebsd-src.txz -C /
             fi
             echo '=== Compile userland tool ==='
             make -C bp_ctl-4.0.2/util
