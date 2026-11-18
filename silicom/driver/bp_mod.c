@@ -5723,7 +5723,7 @@ static int get_bypass_slave_fn(bpctl_dev_t *pbpctl_dev,bpctl_dev_t **pbpctl_dev_
 		return -1;
 	}
 	if ((pbpctl_dev->func == 0) || (pbpctl_dev->func == 2)) {
-		for (idx_dev = 0; ((bpctl_dev_arr[idx_dev].pdev != NULL) && (idx_dev<device_num)); idx_dev++) {
+		for (idx_dev = 0; ((idx_dev<device_num) && (bpctl_dev_arr[idx_dev].pdev != NULL)); idx_dev++) {
 			if ((bpctl_dev_arr[idx_dev].bus == pbpctl_dev->bus) &&
 				(bpctl_dev_arr[idx_dev].slot==pbpctl_dev->slot)) {
 				if ((pbpctl_dev->func==0) &&
@@ -6249,8 +6249,8 @@ static int get_bypass_info_fn(bpctl_dev_t *pbpctl_dev, char *dev_name, char *add
 static int get_dev_idx(int ifindex) {
 	int idx_dev=0;
 
-	if_scan();
-	for (idx_dev = 0; ((bpctl_dev_arr[idx_dev].pdev != NULL) && (idx_dev<device_num)); idx_dev++)
+	/* Interface IDs cached at module initialisation. */
+	for (idx_dev = 0; ((idx_dev<device_num) && (bpctl_dev_arr[idx_dev].pdev != NULL)); idx_dev++)
 	{
 		if (ifindex == bpctl_dev_arr[idx_dev].ifindex)
 			return idx_dev;
@@ -6266,7 +6266,7 @@ static int get_pair_idx(int dev_num) {
 	bpctl_dev_curr=&bpctl_dev_arr[dev_num];
 	func_pair = (bpctl_dev_curr->func == 0) ? 1 : 0;
 
-	for (idx_dev = 0; ((bpctl_dev_arr[idx_dev].pdev != NULL) && (idx_dev < device_num)); idx_dev++)
+	for (idx_dev = 0; ((idx_dev < device_num) && (bpctl_dev_arr[idx_dev].pdev != NULL)); idx_dev++)
 	{
 		if ((bpctl_dev_arr[idx_dev].bus == bpctl_dev_curr->bus)&&
 			(bpctl_dev_arr[idx_dev].slot == bpctl_dev_curr->slot)&&
@@ -6352,7 +6352,7 @@ bpmod_close(struct cdev *dev, int flag, int otyp, struct thread *td)
 
 static int get_dev_idx_bsf(int bus, int slot, int func) {
 	int idx_dev=0;
-	if_scan();
+	/* Interface IDs cached at module initialisation. */
 	for (idx_dev = 0; ((idx_dev<device_num)&&(bpctl_dev_arr[idx_dev].pdev!=NULL)); idx_dev++) {
 		if ((bus==bpctl_dev_arr[idx_dev].bus) &&
 			(slot==bpctl_dev_arr[idx_dev].slot) &&
@@ -6394,8 +6394,8 @@ bpmod_ioctl(struct cdev *dev, u_long cmd, caddr_t arg, int mode,
 /*
 * Switch according to the ioctl called
 */
-	if (cmd == IOCTL_TX_MSG(IF_SCAN)) {    
-		if_scan();
+	if (cmd == IOCTL_TX_MSG(IF_SCAN)) {
+		/* No interface lookup from ioctl context. */
 		return SUCCESS;
 	}
 	if (cmd == IOCTL_TX_MSG(GET_DEV_NUM)) {    
@@ -6418,7 +6418,7 @@ bpmod_ioctl(struct cdev *dev, u_long cmd, caddr_t arg, int mode,
 	} else {
 		dev_idx = (bpctl_cmd->in_param[1] == 0)?bpctl_cmd->in_param[0]:get_dev_idx(bpctl_cmd->in_param[1]);
 	}
-	if (dev_idx<0||dev_idx>device_num) {
+	if (dev_idx<0||dev_idx>=device_num) {
 
 #if __FreeBSD_version<500000    
 		splx(s);
@@ -6442,7 +6442,7 @@ bpmod_ioctl(struct cdev *dev, u_long cmd, caddr_t arg, int mode,
 			bpctl_cmd->status=-1;
 			goto exit_ioctl;
 		}
-		if_scan();
+		/* No interface enumeration in ioctl context. */
 		if (bpctl_dev_arr[dev_idx].ndev) {
 			if (!(if_getflags(bpctl_dev_arr[dev_idx].ndev) & IFF_UP)) {
 				printf("Please bring up network interfaces for %s adapter!\n",
