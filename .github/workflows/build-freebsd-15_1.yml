@@ -3,6 +3,9 @@ name: Silicom bypass driver - OPNsense 26.7 exact kernel compile
 # Run manually only. Updating source or workflow must not create overlapping builds.
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - '.github/one-time-opnsense-build-trigger.txt'
 
 concurrency:
   group: opnsense-silicom-bpmod
@@ -91,4 +94,36 @@ jobs:
             bp_ctl-4.0.2/util/bpctl_util
             bp_ctl-4.0.2/driver/bpmod.ko
           if-no-files-found: error
-
+      - name: Disposable VM kernel-load smoke test (no Silicom hardware)
+        uses: vmactions/freebsd-vm@v1
+        with:
+          release: '15.1'
+          arch: amd64
+          usesh: true
+          run: |
+            set -eu
+            echo '=== WARNING: Generic FreeBSD VM kernel, OPNsense source-built module ==='
+            uname -a
+            echo '=== Kernel module load attempt; VM disposable ==='
+            set +e
+            timeout 40 kldload ./bp_ctl-4.0.2/driver/bpmod.ko
+            result=$?
+            set -e
+            echo "kldload exit code: $result"
+            echo '=== Post-load state ==='
+            kldstat -v | grep bpmod || true
+            dmesg | tail -35
+            if [ "$result" -eq 0 ]; then
+              echo 'Unexpected successful load without Silicom card'
+              kldunload bpmod || true
+              exit 1
+            fi
+            if [ "$result" -eq 124 ]; then
+              echo 'Kernel module load hung (FAIL)'
+              exit 1
+            fi
+            if kldstat -v | grep -q bpmod; then
+              echo 'Module remained loaded despite error (FAIL)'
+              exit 1
+            fi
+            echo 'Module rejected load without hardware, VM survived (PASS)'
