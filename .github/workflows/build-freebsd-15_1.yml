@@ -65,10 +65,9 @@ jobs:
             set -eu
             uname -a
             freebsd-version -ku
-            if [ ! -f /usr/src/sys/Makefile ]; then
-              mkdir -p /usr/src
-              tar -xzf opnsense-src.tar.gz --strip-components=1 -C /usr/src
-            fi
+            # Never accidentally build against stock FreeBSD headers.
+            mkdir -p /usr/src
+            tar -xzf opnsense-src.tar.gz --strip-components=1 -C /usr/src
             test -f /usr/src/sys/Makefile
             echo 'Source commit: 1633399de9ddbceb1474b7c095eeb5ef8c2f9ca8'
             echo '=== Compile userland tool ==='
