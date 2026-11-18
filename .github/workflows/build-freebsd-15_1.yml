@@ -3,9 +3,6 @@ name: Silicom bypass driver - OPNsense 26.7 exact kernel compile
 # Run manually only. Updating source or workflow must not create overlapping builds.
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - '.github/one-time-opnsense-build-trigger.txt'
 
 concurrency:
   group: opnsense-silicom-bpmod
