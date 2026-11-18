@@ -1,1 +1,1 @@
-One-time compile and isolated VM smoke test after PCI safety fixes; OPNsense 26.7 1633399de9dd.
+One-time build of read-only PCI diagnostic hzbpdiag for OPNsense 26.7, commit 1633399de9dd.
