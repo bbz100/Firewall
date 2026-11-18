@@ -6249,7 +6249,7 @@ static int get_bypass_info_fn(bpctl_dev_t *pbpctl_dev, char *dev_name, char *add
 static int get_dev_idx(int ifindex) {
 	int idx_dev=0;
 
-	/* Interface IDs cached at module initialisation. */
+	/* Use indices populated during initial PCI enumeration. */
 	for (idx_dev = 0; ((idx_dev<device_num) && (bpctl_dev_arr[idx_dev].pdev != NULL)); idx_dev++)
 	{
 		if (ifindex == bpctl_dev_arr[idx_dev].ifindex)
@@ -6352,7 +6352,7 @@ bpmod_close(struct cdev *dev, int flag, int otyp, struct thread *td)
 
 static int get_dev_idx_bsf(int bus, int slot, int func) {
 	int idx_dev=0;
-	/* Interface IDs cached at module initialisation. */
+	/* Use indices populated during initial PCI enumeration. */
 	for (idx_dev = 0; ((idx_dev<device_num)&&(bpctl_dev_arr[idx_dev].pdev!=NULL)); idx_dev++) {
 		if ((bus==bpctl_dev_arr[idx_dev].bus) &&
 			(slot==bpctl_dev_arr[idx_dev].slot) &&
@@ -6395,7 +6395,7 @@ bpmod_ioctl(struct cdev *dev, u_long cmd, caddr_t arg, int mode,
 * Switch according to the ioctl called
 */
 	if (cmd == IOCTL_TX_MSG(IF_SCAN)) {
-		/* No interface lookup from ioctl context. */
+		/* PCI discovery populated cached interface indexes at module load. */
 		return SUCCESS;
 	}
 	if (cmd == IOCTL_TX_MSG(GET_DEV_NUM)) {    
@@ -6442,7 +6442,7 @@ bpmod_ioctl(struct cdev *dev, u_long cmd, caddr_t arg, int mode,
 			bpctl_cmd->status=-1;
 			goto exit_ioctl;
 		}
-		/* No interface enumeration in ioctl context. */
+		/* Cached interface pointer established at module load. */
 		if (bpctl_dev_arr[dev_idx].ndev) {
 			if (!(if_getflags(bpctl_dev_arr[dev_idx].ndev) & IFF_UP)) {
 				printf("Please bring up network interfaces for %s adapter!\n",
