@@ -5,6 +5,7 @@ on:
   push:
     paths:
       - 'PxGxBP-SD_CD_.zip'
+      - 'scripts/port_freebsd15.py'
       - '.github/workflows/build-freebsd-15_1.yml'
 
 jobs:
@@ -22,6 +23,10 @@ jobs:
           tar -xzf /tmp/bp_ctl-4.0.2.tar.gz
           test -f bp_ctl-4.0.2/driver/bp_mod.c
           test -f bp_ctl-4.0.2/util/bpctl_util.c
+      - name: Apply experimental FreeBSD 15.1 API migration
+        run: |
+          python3 scripts/port_freebsd15.py
+          echo 'CWARNFLAGS+= -Wno-error=unused-but-set-variable' >> bp_ctl-4.0.2/driver/Makefile
       - name: Compile on FreeBSD 15.1 amd64 (do not load kernel module)
         uses: vmactions/freebsd-vm@v1
         with:
