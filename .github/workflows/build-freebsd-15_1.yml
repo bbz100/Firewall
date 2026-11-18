@@ -1,12 +1,12 @@
-name: Silicom bypass driver - FreeBSD 15.1 compile
+name: Silicom bypass driver - OPNsense 26.7 exact kernel compile
 
+# Run manually only. Updating source or workflow must not create overlapping builds.
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - 'PxGxBP-SD_CD_.zip'
-      - 'scripts/port_freebsd15.py'
-      - '.github/workflows/build-freebsd-15_1.yml'
+
+concurrency:
+  group: opnsense-silicom-bpmod
+  cancel-in-progress: false
 
 jobs:
   compile:
@@ -38,23 +38,24 @@ jobs:
             git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'Publish experimentally ported Silicom FreeBSD 15.1 driver C sources'
             git push origin HEAD:main
           fi
-      - name: Restore FreeBSD 15.1 kernel-source archive cache
-        id: freebsd-src-cache
+      - name: Cache exact OPNsense kernel sources (download once when cache persists)
+        id: opnsense-src-cache
         uses: actions/cache@v4
         with:
-          path: freebsd-src.txz
-          key: freebsd-15.1-release-src-txz-v1
-      - name: Download FreeBSD kernel sources on Ubuntu host (cache miss only)
-        if: steps.freebsd-src-cache.outputs.cache-hit != 'true'
+          path: opnsense-src.tar.gz
+          key: opnsense-src-1633399de9ddbceb1474b7c095eeb5ef8c2f9ca8-v1
+      - name: Download pinned OPNsense kernel sources (cache miss only)
+        if: steps.opnsense-src-cache.outputs.cache-hit != 'true'
         run: |
           set -eu
-          curl --fail --location --retry 5 --retry-all-errors --retry-delay 3 --connect-timeout 30 --output freebsd-src.txz https://download.freebsd.org/releases/amd64/amd64/15.1-RELEASE/src.txz
-          tar -tJf freebsd-src.txz usr/src/sys/Makefile >/dev/null
-      - name: Verify available kernel-source archive
+          curl --fail --location --retry 5 --retry-all-errors --retry-delay 3 --connect-timeout 30 --output opnsense-src.tar.gz https://codeload.github.com/opnsense/src/tar.gz/1633399de9ddbceb1474b7c095eeb5ef8c2f9ca8
+          tar -tzf opnsense-src.tar.gz >/dev/null
+      - name: Verify pinned OPNsense source archive
         run: |
-          test -s freebsd-src.txz
-          tar -tJf freebsd-src.txz usr/src/sys/Makefile >/dev/null
-      - name: Compile on FreeBSD 15.1 amd64 (do not load kernel module)
+          set -eu
+          test -s opnsense-src.tar.gz
+          tar -tzf opnsense-src.tar.gz | grep '/sys/Makefile$'
+      - name: Compile against exact OPNsense kernel sources (do not load module)
         uses: vmactions/freebsd-vm@v1
         with:
           release: '15.1'
@@ -65,8 +66,11 @@ jobs:
             uname -a
             freebsd-version -ku
             if [ ! -f /usr/src/sys/Makefile ]; then
-              tar -xpf freebsd-src.txz -C /
+              mkdir -p /usr/src
+              tar -xzf opnsense-src.tar.gz --strip-components=1 -C /usr/src
             fi
+            test -f /usr/src/sys/Makefile
+            echo 'Source commit: 1633399de9ddbceb1474b7c095eeb5ef8c2f9ca8'
             echo '=== Compile userland tool ==='
             make -C bp_ctl-4.0.2/util
             echo '=== Compile kernel driver ==='
