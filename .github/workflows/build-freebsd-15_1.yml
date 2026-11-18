@@ -38,7 +38,16 @@ jobs:
             uname -a
             freebsd-version -ku
             if [ ! -f /usr/src/sys/Makefile ]; then
-              fetch -o /tmp/freebsd-src.txz https://download.freebsd.org/releases/amd64/amd64/15.1-RELEASE/src.txz
+              ok=0
+              for attempt in 1 2 3 4; do
+                echo "Kernel source download attempt $attempt of 4"
+                rm -f /tmp/freebsd-src.txz
+                if fetch -T 180 -o /tmp/freebsd-src.txz https://download.freebsd.org/releases/amd64/amd64/15.1-RELEASE/src.txz; then
+                  ok=1
+                  break
+                fi
+              done
+              test "$ok" -eq 1
               tar -xpf /tmp/freebsd-src.txz -C /
             fi
             echo '=== Compile userland tool ==='
