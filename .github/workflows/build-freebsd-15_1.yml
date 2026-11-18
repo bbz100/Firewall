@@ -73,6 +73,12 @@ jobs:
             make -C bp_ctl-4.0.2/driver
             echo '=== Result ==='
             ls -lh bp_ctl-4.0.2/util/bpctl_util bp_ctl-4.0.2/driver/bpmod.ko
+            echo '=== VM non-loading binary sanity checks ==='
+            file bp_ctl-4.0.2/driver/bpmod.ko bp_ctl-4.0.2/util/bpctl_util
+            readelf -h bp_ctl-4.0.2/driver/bpmod.ko
+            echo '=== Control utility with no Silicom hardware ==='
+            ./bp_ctl-4.0.2/util/bpctl_util || true
+            echo '=== No module loading: runtime safety review pending ==='
       - name: Upload experimental binaries
         if: success()
         uses: actions/upload-artifact@v4
@@ -83,20 +89,3 @@ jobs:
             bp_ctl-4.0.2/driver/bpmod.ko
           if-no-files-found: error
 
-      - name: VM non-loading binary sanity checks
-        uses: vmactions/freebsd-vm@v1
-        with:
-          release: '15.1'
-          arch: amd64
-          usesh: true
-          run: |
-            set -eu
-            echo '=== FreeBSD build environment ==='
-            uname -a
-            echo '=== Check module and utility file types ==='
-            file bp_ctl-4.0.2/driver/bpmod.ko bp_ctl-4.0.2/util/bpctl_util
-            echo '=== ELF metadata (no module loading) ==='
-            readelf -h bp_ctl-4.0.2/driver/bpmod.ko
-            echo '=== Run user-space utility with no physical hardware ==='
-            ./bp_ctl-4.0.2/util/bpctl_util || true
-            echo '=== Kernel module load DISABLED pending investigation ==='
