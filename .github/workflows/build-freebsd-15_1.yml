@@ -38,10 +38,21 @@ jobs:
             git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'Publish experimentally ported Silicom FreeBSD 15.1 driver C sources'
             git push origin HEAD:main
           fi
-      - name: Download FreeBSD kernel sources on Ubuntu host
+      - name: Restore FreeBSD 15.1 kernel-source archive cache
+        id: freebsd-src-cache
+        uses: actions/cache@v4
+        with:
+          path: freebsd-src.txz
+          key: freebsd-15.1-release-src-txz-v1
+      - name: Download FreeBSD kernel sources on Ubuntu host (cache miss only)
+        if: steps.freebsd-src-cache.outputs.cache-hit != 'true'
         run: |
           set -eu
           curl --fail --location --retry 5 --retry-all-errors --retry-delay 3 --connect-timeout 30 --output freebsd-src.txz https://download.freebsd.org/releases/amd64/amd64/15.1-RELEASE/src.txz
+          tar -tJf freebsd-src.txz usr/src/sys/Makefile >/dev/null
+      - name: Verify available kernel-source archive
+        run: |
+          test -s freebsd-src.txz
           tar -tJf freebsd-src.txz usr/src/sys/Makefile >/dev/null
       - name: Compile on FreeBSD 15.1 amd64 (do not load kernel module)
         uses: vmactions/freebsd-vm@v1
