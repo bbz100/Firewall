@@ -3,6 +3,9 @@ name: Silicom bypass driver - OPNsense 26.7 exact kernel compile
 # Run manually only. Updating source or workflow must not create overlapping builds.
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - '.github/one-time-opnsense-build-trigger.txt'
 
 concurrency:
   group: opnsense-silicom-bpmod
@@ -74,6 +77,9 @@ jobs:
             make -C bp_ctl-4.0.2/util
             echo '=== Compile kernel driver ==='
             make -C bp_ctl-4.0.2/driver
+            echo '=== Compile read-only PCI diagnostic ==='
+            make -C diagnostic
+            file diagnostic/hzbpdiag.ko
             echo '=== Result ==='
             ls -lh bp_ctl-4.0.2/util/bpctl_util bp_ctl-4.0.2/driver/bpmod.ko
             echo '=== VM non-loading binary sanity checks ==='
@@ -90,6 +96,7 @@ jobs:
           path: |
             bp_ctl-4.0.2/util/bpctl_util
             bp_ctl-4.0.2/driver/bpmod.ko
+            diagnostic/hzbpdiag.ko
           if-no-files-found: error
       - name: Disposable VM kernel-load smoke test (no Silicom hardware)
         uses: vmactions/freebsd-vm@v1
