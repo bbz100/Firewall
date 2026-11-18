@@ -24,7 +24,6 @@ edit(h, [
 edit(c, [
     ("#include <sys/param.h>", "#include <sys/callout.h>\n#include <sys/param.h>"),
     ("ifp->if_index", "if_getindex(ifp)"),
-    ("->ndev->if_flags", "->ndev->if_flags"), # replacement below handles modern opaque ifnet
     ("bpctl_dev_arr[dev_idx].ndev->if_flags", "if_getflags(bpctl_dev_arr[dev_idx].ndev)"),
     ("bpctl_dev_arr[pair_idx].ndev->if_flags", "if_getflags(bpctl_dev_arr[pair_idx].ndev)"),
     ("bpctl_dev_arr[idx_dev].ndev->if_flags", "if_getflags(bpctl_dev_arr[idx_dev].ndev)"),
